@@ -38,9 +38,26 @@ async function run() {
     const rolesCollection = db.collection('roles');
     const helpCategoriesCollection = db.collection('helpCategories');
     const helpRequestCollection = db.collection('helpRequests');
+    const userCollection = db.collection('user');
 
     const bucket = new GridFSBucket(db, {
       bucketName: "helpDocuments",
+    });
+
+    app.patch("/user/:id/role", async (req: any, res: any) => {
+        const { id } = req.params;
+        const { role } = req.body;
+
+        const result = await userCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              role: role,
+            },
+          }
+        );
+        res.send(result);
+      
     });
 
     app.get("/roles/:slug", async (req: any, res: any) => {
@@ -173,6 +190,45 @@ async function run() {
         .toArray();
 
       res.send(result);
+    });
+
+    app.get("/files/:id", async (req: any, res: any) => {
+      try {
+        const { id } = req.params;
+
+        const fileId = new ObjectId(id);
+
+        const file = await db
+          .collection("helpDocuments.files")
+          .findOne({ _id: fileId });
+
+        if (!file) {
+          return res.status(404).json({
+            success: false,
+            message: "File not found",
+          });
+        }
+
+        res.set("Content-Type", file.metadata?.contentType || "application/octet-stream");
+        res.set("Content-Disposition", `inline; filename="${encodeURIComponent(file.filename)}"`);
+
+        bucket.openDownloadStream(fileId).pipe(res);
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          message: "Failed to retrieve file",
+        });
+      }
+    });
+
+    app.get("/helpRequests/:id", async (req: any, res: any) => {
+      const { id } = req.params;
+
+      const result = await helpRequestCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      res.json(result);
     });
 
     await client.db("admin").command({ ping: 1 });
