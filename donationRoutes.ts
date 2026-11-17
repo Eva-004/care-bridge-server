@@ -37,8 +37,8 @@ export default function donationRoutes(db: any) {
                 return res.status(404).json({ message: "Category not found" });
             }
 
-            const storeId = process.env.SSL_STORE_ID;
-            const storePassword = process.env.SSL_STORE_PASSWORD;
+            const storeId = process.env.SSLCOMMERZ_STORE_ID;
+            const storePassword = process.env.SSLCOMMERZ_STORE_PASSWORD;
             const serverUrl = process.env.SERVER_URL;
 
             if (!sslBaseUrl || !storeId || !storePassword || !serverUrl) {
@@ -133,8 +133,14 @@ export default function donationRoutes(db: any) {
             });
 
         } catch (error) {
-            console.error("Donation error:", error);
-            res.status(500).json({ message: "Failed to process donation" });
+            console.log("Donation API Error:");
+            console.log(error);
+
+            res.status(500).json({
+                success: false,
+                message: "Failed to process donation",
+                error: error instanceof Error ? error.message : String(error),
+            });
         }
     });
 
@@ -142,20 +148,28 @@ export default function donationRoutes(db: any) {
         const payment = await payments.findOne({ tranId });
 
         if (!payment) return null;
-
+        console.log("Validation Request:", {
+            val_id: valId,
+            store_id: process.env.SSLCOMMERZ_STORE_ID,
+            sslBaseUrl,
+        });
         const response = await axios.get(
             `${sslBaseUrl}/validator/api/validationserverAPI.php`,
             {
                 params: {
                     val_id: valId,
-                    store_id: process.env.SSL_STORE_ID,
-                    store_passwd: process.env.SSL_STORE_PASSWORD,
+                    store_id: process.env.SSLCOMMERZ_STORE_ID,
+                    store_passwd: process.env.SSLCOMMERZ_STORE_PASSWORD,
+                    v: 1,
                     format: "json",
                 },
             }
         );
 
         const data = response.data;
+        console.log("SSL Validation Response:", data);
+        console.log("Transaction ID:", tranId);
+        console.log("Payment Amount:", payment.amount);
 
         if (
             !["VALID", "VALIDATED"].includes(data.status) ||
@@ -171,7 +185,12 @@ export default function donationRoutes(db: any) {
 
     router.post("/payment/success", async (req: any, res: any) => {
         try {
+            console.log("Success Callback Body:", req.body);
+
             const { tran_id, val_id } = req.body;
+
+            console.log("Callback Transaction ID:", tran_id);
+            console.log("Callback Validation ID:", val_id);
 
             if (!tran_id || !val_id) {
                 return res.status(400).json({ message: "Invalid payment information" });
@@ -198,14 +217,12 @@ export default function donationRoutes(db: any) {
                 }
             );
 
-            res.json({
-                success: true,
-                message: update.modifiedCount ? "Payment successful" : "Payment already processed",
-                tranId: tran_id,
-            });
+            return res.redirect(303, `${process.env.CLIENT_URL}/donate/success?tranId=${encodeURIComponent(tran_id)}`
+            );
 
         } catch (error) {
             console.error("Payment success error:", error);
+
             res.status(500).json({ message: "Payment validation failed" });
         }
     });

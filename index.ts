@@ -7,6 +7,10 @@ const cors = require("cors");
 const multer = require("multer");
 const axios = require("axios");
 dotenv.config();
+console.log("SSL Credentials Check:", {
+  storeId: !!process.env.SSLCOMMERZ_STORE_ID,
+  storePassword: !!process.env.SSLCOMMERZ_STORE_PASSWORD,
+});
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
