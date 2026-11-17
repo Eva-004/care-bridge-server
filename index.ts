@@ -8,6 +8,7 @@ const axios = require("axios");
 dotenv.config();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const port = process.env.PORT;
 
@@ -292,18 +293,136 @@ async function run() {
           updatedAt: now,
         });
 
+
+
+        const storeId = process.env.SSL_STORE_ID;
+        const storePassword = process.env.SSL_STORE_PASSWORD;
+        const serverUrl = process.env.SERVER_URL;
+
+        if (!storeId || !storePassword || !serverUrl || !process.env.SSL_BASE_URL) {
+          return res.status(500).json({
+            success: false,
+            message: "Payment configuration is missing",
+          });
+        }
+
+        const paymentData = new URLSearchParams({
+          store_id: storeId,
+          store_passwd: storePassword,
+          total_amount: donationAmount.toFixed(2),
+          currency: "BDT",
+          tran_id: tranId,
+          success_url: `${serverUrl}/payment/success`,
+          fail_url: `${serverUrl}/payment/fail`,
+          cancel_url: `${serverUrl}/payment/cancel`,
+          ipn_url: `${serverUrl}/payment/ipn`,
+          cus_name: String(name),
+          cus_email: String(email),
+          cus_phone: String(phone),
+          cus_add1: "Bangladesh",
+          cus_city: "Sylhet",
+          cus_postcode: "3100",
+          cus_country: "Bangladesh",
+          shipping_method: "NO",
+          product_name: "Donation",
+          product_category: "Donation",
+          product_profile: "non-physical-goods",
+        });
+
+        const paymentResponse = await axios.post(
+          `${process.env.SSL_BASE_URL}/gwprocess/v4/api.php`,
+          paymentData,
+          {
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+          }
+        );
+
+        if (
+          paymentResponse.data.status !== "SUCCESS" ||
+          !paymentResponse.data.GatewayPageURL
+        ) {
+          await paymentsCollection.updateOne(
+            { tranId },
+            {
+              $set: {
+                status: "INITIATION_FAILED",
+                updatedAt: new Date(),
+              },
+            }
+          );
+
+          return res.status(400).json({
+            success: false,
+            message: "Payment session creation failed",
+          });
+        }
+
+        await paymentsCollection.updateOne(
+          { tranId },
+          {
+            $set: {
+              gatewayUrl: paymentResponse.data.GatewayPageURL,
+              sessionKey: paymentResponse.data.sessionkey,
+              updatedAt: new Date(),
+            },
+          }
+        );
+
         res.status(201).json({
           success: true,
-          message: "Donation and payment records created",
+          message: "Payment session created",
           donationId: donationResult.insertedId,
           tranId,
+          gatewayUrl: paymentResponse.data.GatewayPageURL,
         });
+
+
+
       } catch (error: any) {
         console.error("Donation error:", error);
 
         res.status(500).json({
           success: false,
           message: "Failed to process donation",
+        });
+      }
+    });
+
+
+    app.post("/payment/success", async (req: any, res: any) => {
+      try {
+        const { tran_id, val_id } = req.body;
+
+        if (!tran_id || !val_id) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid payment information",
+          });
+        }
+
+        const payment = await paymentsCollection.findOne({ tranId: tran_id });
+
+        if (!payment) {
+          return res.status(404).json({
+            success: false,
+            message: "Payment not found",
+          });
+        }
+
+        res.json({
+          success: true,
+          message: "Payment callback received",
+          tranId: tran_id,
+          valId: val_id,
+        });
+      } catch (error) {
+        console.error("Payment success callback error:", error);
+
+        res.status(500).json({
+          success: false,
+          message: "Payment callback failed",
         });
       }
     });
