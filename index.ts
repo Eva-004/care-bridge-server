@@ -4,6 +4,7 @@ const app = express();
 const dotenv = require("dotenv");
 const cors = require("cors");
 const multer = require("multer");
+const axios = require("axios");
 dotenv.config();
 app.use(cors());
 app.use(express.json());
@@ -39,25 +40,28 @@ async function run() {
     const helpCategoriesCollection = db.collection('helpCategories');
     const helpRequestCollection = db.collection('helpRequests');
     const userCollection = db.collection('user');
+    const donationsCollection = db.collection("donations");
+    const paymentsCollection = db.collection("payments");
+
 
     const bucket = new GridFSBucket(db, {
       bucketName: "helpDocuments",
     });
 
     app.patch("/user/:id/role", async (req: any, res: any) => {
-        const { id } = req.params;
-        const { role } = req.body;
+      const { id } = req.params;
+      const { role } = req.body;
 
-        const result = await userCollection.updateOne(
-          { _id: new ObjectId(id) },
-          {
-            $set: {
-              role: role,
-            },
-          }
-        );
-        res.send(result);
-      
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            role: role,
+          },
+        }
+      );
+      res.send(result);
+
     });
 
     app.get("/roles/:slug", async (req: any, res: any) => {
@@ -230,6 +234,80 @@ async function run() {
 
       res.json(result);
     });
+
+
+    app.post("/donations", async (req: any, res: any) => {
+      try {
+        const { name, category, purpose, amount, email, phone } = req.body;
+        const donationAmount = Number(amount);
+
+        if (!name || !category || !amount || !email || !phone) {
+          return res.status(400).json({
+            success: false,
+            message: "All required fields are needed",
+          });
+        }
+
+        if (!Number.isFinite(donationAmount) || donationAmount < 10 || donationAmount > 500000) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid donation amount",
+          });
+        }
+
+        const categoryInfo = await helpCategoriesCollection.findOne({
+          _id: new ObjectId(category),
+        });
+
+        if (!categoryInfo) {
+          return res.status(404).json({
+            success: false,
+            message: "Category not found",
+          });
+        }
+
+        const tranId = `CB-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        const now = new Date();
+
+        const donationResult = await donationsCollection.insertOne({
+          name,
+          category,
+          purpose: purpose || "",
+          amount: donationAmount,
+          email,
+          phone,
+          createdAt: now,
+        });
+
+        await paymentsCollection.insertOne({
+          donationId: donationResult.insertedId,
+          tranId,
+          amount: donationAmount,
+          currency: "BDT",
+          status: "PENDING",
+          paymentMethod: null,
+          valId: null,
+          bankTranId: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        res.status(201).json({
+          success: true,
+          message: "Donation and payment records created",
+          donationId: donationResult.insertedId,
+          tranId,
+        });
+      } catch (error: any) {
+        console.error("Donation error:", error);
+
+        res.status(500).json({
+          success: false,
+          message: "Failed to process donation",
+        });
+      }
+    });
+
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
