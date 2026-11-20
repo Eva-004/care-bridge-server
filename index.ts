@@ -82,6 +82,28 @@ async function run() {
       res.json(result);
     });
 
+    app.post("/roles", async (req: any, res: any) => {
+      const data = req.body;
+
+      const roleData = {
+        name: data.name,
+        slug: data.slug,
+        permissions: data.permissions,
+        isActive: data.isActive ?? true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const result = await rolesCollection.insertOne(roleData);
+
+      res.json(result);
+    });
+
+    app.get("/roles", async (req: any, res: any) => {
+      const result = await rolesCollection.find().toArray();
+      res.json(result);
+    });
+
     app.post("/helpCategories", async (req: any, res: any) => {
       const data = req.body;
 
@@ -242,6 +264,60 @@ async function run() {
       res.json(result);
     });
 
+   app.get("/donations/:email", async (req: any, res: any) => {
+  const { email } = req.params;
+
+  const result = await donationsCollection
+    .aggregate([
+      {
+        $match: {
+          email: email,
+        },
+      },
+      {
+        $lookup: {
+          from: "helpCategories",
+          let: { categoryId: "$category" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [{ $toString: "$_id" }, "$$categoryId"],
+                },
+              },
+            },
+          ],
+          as: "categoryInfo",
+        },
+      },
+      {
+        $unwind: {
+          path: "$categoryInfo",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          category: {
+            $ifNull: ["$categoryInfo.name", "Unknown Category"],
+          },
+        },
+      },
+      {
+        $project: {
+          categoryInfo: 0,
+        },
+      },
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+    ])
+    .toArray();
+
+  res.json(result);
+});
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
