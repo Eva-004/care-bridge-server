@@ -264,60 +264,91 @@ async function run() {
       res.json(result);
     });
 
-   app.get("/donations/:email", async (req: any, res: any) => {
-  const { email } = req.params;
+    app.get("/donations/:email", async (req: any, res: any) => {
+      const { email } = req.params;
 
-  const result = await donationsCollection
-    .aggregate([
-      {
-        $match: {
-          email: email,
-        },
-      },
-      {
-        $lookup: {
-          from: "helpCategories",
-          let: { categoryId: "$category" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: [{ $toString: "$_id" }, "$$categoryId"],
+      const result = await donationsCollection
+        .aggregate([
+          {
+            $match: {
+              email: email,
+            },
+          },
+          {
+            $lookup: {
+              from: "helpCategories",
+              let: { categoryId: "$category" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: [{ $toString: "$_id" }, "$$categoryId"],
+                    },
+                  },
                 },
+              ],
+              as: "categoryInfo",
+            },
+          },
+          {
+            $unwind: {
+              path: "$categoryInfo",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $addFields: {
+              category: {
+                $ifNull: ["$categoryInfo.name", "Unknown Category"],
               },
             },
-          ],
-          as: "categoryInfo",
-        },
-      },
-      {
-        $unwind: {
-          path: "$categoryInfo",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $addFields: {
-          category: {
-            $ifNull: ["$categoryInfo.name", "Unknown Category"],
           },
-        },
-      },
-      {
-        $project: {
-          categoryInfo: 0,
-        },
-      },
-      {
-        $sort: {
-          createdAt: -1,
-        },
-      },
-    ])
-    .toArray();
+          {
+            $project: {
+              categoryInfo: 0,
+            },
+          },
+          {
+            $sort: {
+              createdAt: -1,
+            },
+          },
+        ])
+        .toArray();
 
-  res.json(result);
-});
+      res.json(result);
+    });
+
+    app.get("/payments/:email", async (req: any, res: any) => {
+      const { email } = req.params;
+
+      const result = await paymentsCollection
+        .aggregate([
+          {
+            $lookup: {
+              from: "donations",
+              localField: "donationId",
+              foreignField: "_id",
+              as: "donationInfo",
+            },
+          },
+          { $unwind: "$donationInfo" },
+          { $match: { "donationInfo.email": email } },
+          { $sort: { createdAt: -1 } },
+          {
+            $project: {
+              donationInfo: 0,
+              sessionKey: 0,
+              gatewayUrl: 0,
+              valId: 0,
+            },
+          },
+        ])
+        .toArray();
+
+      res.send(result);
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
