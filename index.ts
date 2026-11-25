@@ -1,4 +1,5 @@
 import donationRoutes from "./donationRoutes";
+import uploadImageRoutes from "./uploadImage";
 const express = require("express");
 const app = express();
 
@@ -14,6 +15,7 @@ console.log("SSL Credentials Check:", {
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(uploadImageRoutes);
 
 const port = process.env.PORT;
 
@@ -123,6 +125,31 @@ async function run() {
     });
     app.get("/helpCategories", async (req: any, res: any) => {
       const result = await helpCategoriesCollection.find().toArray();
+      res.json(result);
+    });
+    app.get("/user", async (req: any, res: any) => {
+      const result = await userCollection.find().toArray();
+      res.json(result);
+    });
+    app.patch("/user/:id", async (req: any, res: any) => {
+      const { id } = req.params;
+      const { role } = req.body;
+
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } }
+      );
+
+      res.json(result);
+    });
+
+    app.delete("/user/:id", async (req: any, res: any) => {
+      const { id } = req.params;
+
+      const result = await userCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
       res.json(result);
     });
 

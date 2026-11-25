@@ -56,15 +56,6 @@ router.post("/upload-image", upload.single("image"), async (req: Request, res: R
         });
     } catch (error) {
         console.error("Image upload error:", error);
-
-        if (error instanceof Error) {
-            console.error("Error cause:", error.cause);
-
-            res.status(500).json({
-                message: error.message,
-                cause: error.cause instanceof Error ? error.cause.message : undefined,
-            });
-        }
     }
 });
 
