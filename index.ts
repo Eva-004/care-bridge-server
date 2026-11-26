@@ -1,5 +1,6 @@
 import donationRoutes from "./donationRoutes";
 import uploadImageRoutes from "./uploadImage";
+import campaignRoutes from "./campaign";
 const express = require("express");
 const app = express();
 
@@ -8,10 +9,7 @@ const cors = require("cors");
 const multer = require("multer");
 const axios = require("axios");
 dotenv.config();
-console.log("SSL Credentials Check:", {
-  storeId: !!process.env.SSLCOMMERZ_STORE_ID,
-  storePassword: !!process.env.SSLCOMMERZ_STORE_PASSWORD,
-});
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -45,6 +43,7 @@ async function run() {
     await client.connect();
     const db = client.db("carebridge");
     app.use(donationRoutes(db));
+    app.use(campaignRoutes(db));
     const rolesCollection = db.collection('roles');
     const helpCategoriesCollection = db.collection('helpCategories');
     const helpRequestCollection = db.collection('helpRequests');
