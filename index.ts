@@ -1,14 +1,15 @@
+import "dotenv/config";
+
 import donationRoutes from "./donationRoutes";
 import uploadImageRoutes from "./uploadImage";
 import campaignRoutes from "./campaign";
 const express = require("express");
 const app = express();
 
-const dotenv = require("dotenv");
 const cors = require("cors");
 const multer = require("multer");
 const axios = require("axios");
-dotenv.config();
+
 
 app.use(cors());
 app.use(express.json());

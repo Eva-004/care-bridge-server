@@ -298,5 +298,26 @@ export default function donationRoutes(db: any) {
         }
     });
 
+    router.get("/donations", async (req: any, res: any) => {
+        const allDonations = await donations.find({}).sort({ createdAt: -1 }).toArray();
+
+        const result = await Promise.all(
+            allDonations.map(async (donation: any) => {
+                const payment = await payments.findOne({
+                    donationId: donation._id,
+                });
+
+                return {
+                    ...donation,
+                    paymentStatus: payment?.status || "PENDING",
+                    paymentMethod: payment?.paymentMethod || "N/A",
+                    tranId: payment?.tranId || "",
+                };
+            })
+        );
+
+        res.json({ success: true, donations: result });
+    });
+
     return router;
 }
