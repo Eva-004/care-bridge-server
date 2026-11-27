@@ -178,6 +178,7 @@ async function run() {
 
         const result = await helpRequestCollection.insertOne({
           ...req.body,
+          status: req.body.status || "pending",
           documents,
           createdAt: new Date(),
         });
@@ -250,6 +251,36 @@ async function run() {
         .toArray();
 
       res.send(result);
+    });
+
+    app.get("/helpRequests/user/:userId", async (req: any, res: any) => {
+      const result = await helpRequestCollection
+        .find({ userId: req.params.userId })
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      res.json(result);
+    });
+
+    app.patch("/helpRequests/:id", async (req: any, res: any) => {
+      const { id } = req.params;
+
+      const result = await helpRequestCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: req.body }
+      );
+
+      res.json(result);
+    });
+
+    app.delete("/helpRequests/:id", async (req: any, res: any) => {
+      const { id } = req.params;
+
+      const result = await helpRequestCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.json(result);
     });
 
     app.get("/files/:id", async (req: any, res: any) => {
