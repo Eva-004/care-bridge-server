@@ -3,13 +3,13 @@ import "dotenv/config";
 import donationRoutes from "./donationRoutes";
 import uploadImageRoutes from "./uploadImage";
 import campaignRoutes from "./campaign";
+import helpRequestPaymentRoutes from "./helpRequestPaymentRoutes";
 const express = require("express");
 const app = express();
 
 const cors = require("cors");
 const multer = require("multer");
 const axios = require("axios");
-
 
 app.use(cors());
 app.use(express.json());
@@ -37,14 +37,13 @@ const upload = multer({
   },
 });
 
-
-
 async function run() {
   try {
     await client.connect();
     const db = client.db("carebridge");
     app.use(donationRoutes(db));
     app.use(campaignRoutes(db));
+    app.use(helpRequestPaymentRoutes(db));
     const rolesCollection = db.collection('roles');
     const helpCategoriesCollection = db.collection('helpCategories');
     const helpRequestCollection = db.collection('helpRequests');
