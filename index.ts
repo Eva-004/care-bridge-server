@@ -107,6 +107,99 @@ async function run() {
       res.json(result);
     });
 
+    app.patch("/roles/:id", async (req: any, res: any) => {
+      const { id } = req.params;
+      const { name, slug, permissions } = req.body;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid role ID" });
+      }
+
+      const existingRole = await rolesCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      if (!existingRole) {
+        return res.status(404).json({ message: "Role not found" });
+      }
+
+      if (existingRole.slug === "admin") {
+        return res.status(403).json({
+          message: "Admin role cannot be updated",
+        });
+      }
+
+      const duplicateRole = await rolesCollection.findOne({
+        slug,
+        _id: { $ne: new ObjectId(id) },
+      });
+
+      if (duplicateRole) {
+        return res.status(409).json({
+          message: "This role already exists",
+        });
+      }
+
+      const result = await rolesCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            name,
+            slug,
+            permissions,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      await userCollection.updateMany(
+        { role: existingRole.slug },
+        {
+          $set: {
+            role: slug,
+          },
+        }
+      );
+
+      res.json({
+        success: true,
+        message: "Role updated successfully",
+        result,
+      });
+    });
+
+    app.delete("/roles/:id", async (req: any, res: any) => {
+      const { id } = req.params;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid role ID" });
+      }
+
+      const existingRole = await rolesCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      if (!existingRole) {
+        return res.status(404).json({ message: "Role not found" });
+      }
+
+      if (existingRole.slug === "admin") {
+        return res.status(403).json({
+          message: "Admin role cannot be deleted",
+        });
+      }
+
+      const result = await rolesCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.json({
+        success: true,
+        message: "Role deleted successfully",
+        result,
+      });
+    });
+
     app.post("/helpCategories", async (req: any, res: any) => {
       const data = req.body;
 
