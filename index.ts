@@ -4,6 +4,7 @@ import donationRoutes from "./donationRoutes";
 import uploadImageRoutes from "./uploadImage";
 import campaignRoutes from "./campaign";
 import helpRequestPaymentRoutes from "./helpRequestPaymentRoutes";
+import donationHistoryRoutes from "./donationHistoryRoutes";
 const express = require("express");
 const app = express();
 
@@ -44,6 +45,7 @@ async function run() {
     app.use(donationRoutes(db));
     app.use(campaignRoutes(db));
     app.use(helpRequestPaymentRoutes(db));
+    app.use(donationHistoryRoutes(db));
     const rolesCollection = db.collection('roles');
     const helpCategoriesCollection = db.collection('helpCategories');
     const helpRequestCollection = db.collection('helpRequests');
